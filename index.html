@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Importação de Foto</title>
+    
+    <!-- Fontes e Ícones -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Lugrasimo&display=swap" rel="stylesheet">
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+        body { background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://6a84d1ebca5c68e1f89716b4.imgix.net/sandbox/Nossa%20Senhora%20de%20Perpetuo.jpg') no-repeat center center fixed; background-size: 100%; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 15px; }
+        .mobile-container { width: 100%; max-width: 700px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 20px; padding: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.3); text-align: center; }
+        h2 { color: #2c3e50; font-weight: 600; margin-bottom: 20px; font-size: 32px; }
+        .role-selection { display: flex; gap: 15px; margin-bottom: 25px; }
+        .role-btn { flex: 1; padding: 14px; border: 2px solid #d4af37; background: #fff; color: #d4af37; border-radius: 12px; font-size: 32px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
+        .role-btn.active { background: #d4af37; color: #fff; box-shadow: 0 5px 15px rgba(212, 175, 55, 0.4); }
+        .form-section { display: none; text-align: left; animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .upload-box { border: 2px dashed #cbd5e1; border-radius: 12px; padding: 20px; text-align: center; background: #f8fafc; cursor: pointer; margin-bottom: 15px; position: relative; overflow: hidden; }
+        .upload-box input[type="file"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+        .upload-box i { font-size: 30px; color: #64748b; margin-bottom: 8px; }
+        .upload-box p { color: #64748b; font-size: 32px; }
+        #preview-container { margin-bottom: 15px; text-align: center; display: none; }
+        #preview { width: 100px; height: 100px; object-fit: cover; border-radius: 50%; border: 3px solid #d4af37; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 32px; color: #475569; margin-bottom: 5px; font-weight: 500; }
+        .input-group input { width: 100%; padding: 12px 15px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 32px; outline: none; transition: border 0.3s; }
+        .input-group input:focus { border-color: #d4af37; }
+        .save-btn { width: 100%; padding: 14px; background: #27ae60; color: white; border: none; border-radius: 10px; font-size: 32px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3); transition: background 0.3s; margin-top: 5px; }
+        .save-btn:hover { background: #219653; }
+        .loading, .success-screen { display: none; text-align: center; margin-top: 15px; color: #555; font-size: 32px; }
+        .loading i { animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .success-screen { padding: 20px 0; }
+        .success-screen i { font-size: 45px; color: #27ae60; margin-bottom: 10px; }
+        .success-screen h3 { color: #2c3e50; margin-bottom: 8px; }
+        .success-screen p { color: #64748b; font-size: 32px; }
+    </style>
+</head>
+<body>
+
+    <div class="mobile-container">
+        <h2>Envio de Fotos</h2>
+        
+        <div class="role-selection" id="menuSelecao">
+            <button class="role-btn" id="btnPadrinhos" onclick="selecionarTipo('Padrinhos')">Padrinhos</button>
+            <button class="role-btn" id="btnMadrinhas" onclick="selecionarTipo('Madrinhas')">Madrinhas</button>
+        </div>
+
+        <div id="formulario" class="form-section">
+            <form id="uploadForm" onsubmit="enviarDados(event)">
+                
+                <div class="upload-box" id="uploadBoxUI">
+                    <i class="fa-solid fa-camera"></i>
+                    <p id="uploadText">Toque para anexar a foto</p>
+                    <input type="file" id="arquivoInput" accept="image/*" required onchange="mostrarPreview(this)">
+                </div>
+
+                <div id="preview-container">
+                    <img id="preview" src="" alt="Pré-visualização">
+                </div>
+
+                <div id="camposDinamicos"></div>
+
+                <button type="submit" class="save-btn" id="btnSalvar">Enviar Imagem!</button>
+                
+                <div class="loading" id="loadingDiv">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Processando e enviando fotos, aguarde...
+                </div>
+            </form>
+        </div>
+
+        <div class="success-screen" id="telaSucesso">
+            <i class="fa-solid fa-circle-check"></i>
+            <h3>Fotos enviadas com sucesso!</h3>
+            <p>Os dados foram salvos no sistema.</p>
+            <p style="margin-top: 15px; font-weight: 500; color: #d4af37;">Retornando ao menu em <span id="contador">5</span> segundos...</p>
+        </div>
+    </div>
+
+    <!-- INÍCIO DO CÓDIGO FUNCIONAL -->
+    <script>
+        // =========================================================================
+        // ⚠️ COLE ABAIXO O LINK DO "NOVO APP DA WEB" QUE VOCÊ GEROU NO APPS SCRIPT
+        // =========================================================================
+        const URL_DO_SEU_WEB_APP = 'https://script.google.com/macros/s/AKfycbxg81JiU4xME-rIyAIvmRkO813CKAwo9Bz_IbN2143GFWuxEjEX5d6mejuGFChxJjA-BQ/exec';
+        
+        let tipoAtual = '';
+        let base64Original = '';
+        let mimeTypeOriginal = '';
+        let base64Moldura = ''; 
+        
+        const linkDaMoldura = "https://6a84d1ebca5c68e1f89716b4.imgix.net/sandbox/Templeta%20Padrinhos.png"; 
+        
+        function selecionarTipo(tipo) {
+            tipoAtual = tipo;
+            document.getElementById('btnPadrinhos').classList.remove('active');
+            document.getElementById('btnMadrinhas').classList.remove('active');
+            document.getElementById('btn' + tipo).classList.add('active');
+            document.getElementById('formulario').style.display = 'block';
+
+            let htmlCampos = '';
+            if (tipo === 'Padrinhos') {
+                htmlCampos = `
+                    <div class="input-group"><label>Nome da Esposa *</label><input type="text" id="nome1" required></div>
+                    <div class="input-group"><label>Nome do Marido *</label><input type="text" id="nome2" required></div>`;
+            } else {
+                htmlCampos = `
+                    <div class="input-group"><label>Nome da Madrinha *</label><input type="text" id="nome1" required></div>`;
+            }
+            document.getElementById('camposDinamicos').innerHTML = htmlCampos;
+        }
+
+        function mostrarPreview(input) {
+            if (input.files && input.files[0]) {
+                let arquivo = input.files[0];
+                mimeTypeOriginal = arquivo.type;
+
+                let reader = new FileReader();
+                reader.onload = function(e) {
+                    base64Original = e.target.result;
+                    document.getElementById('preview').src = base64Original;
+                    document.getElementById('preview-container').style.display = 'block';
+                    document.getElementById('uploadText').innerText = "Foto anexada! (Toque para trocar)";
+                }
+                reader.readAsDataURL(arquivo);
+            }
+        }
+
+        function gerarImagemComMoldura(srcOriginal, nome1, nome2, tipo) {
+            return new Promise((resolve, reject) => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                const imgTemplate = new Image();
+                imgTemplate.crossOrigin = "Anonymous"; 
+                
+                imgTemplate.onload = function() {
+                    canvas.width = imgTemplate.width;
+                    canvas.height = imgTemplate.height;
+                    
+                    const imgUser = new Image();
+                    imgUser.onload = function() {
+                        ctx.fillStyle = "#ffffff";
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        
+                        const margemLateral = canvas.width * 0.06; 
+                        const targetX = margemLateral; 
+                        const targetY = canvas.height * 0.05; 
+                        const targetWidth = canvas.width - (margemLateral * 2);
+                        const targetHeight = canvas.height * 0.73; 
+                        
+                        const imgRatio = imgUser.width / imgUser.height;
+                        const targetRatio = targetWidth / targetHeight;
+                        
+                        let sourceWidth, sourceHeight, sourceX, sourceY;
+
+                        if (imgRatio > targetRatio) {
+                            sourceHeight = imgUser.height;
+                            sourceWidth = imgUser.height * targetRatio;
+                            sourceX = (imgUser.width - sourceWidth) / 2;
+                            sourceY = 0;
+                        } else {
+                            sourceWidth = imgUser.width;
+                            sourceHeight = imgUser.width / targetRatio;
+                            sourceX = 0;
+                            sourceY = (imgUser.height - sourceHeight) * 0.20; 
+                        }
+
+                        ctx.drawImage(imgUser, sourceX, sourceY, sourceWidth, sourceHeight, targetX, targetY, targetWidth, targetHeight);
+                        ctx.drawImage(imgTemplate, 0, 0, canvas.width, canvas.height);
+                        
+                        ctx.fillStyle = "#333333"; 
+                        const tamanhoFonte = Math.floor(canvas.width * 0.08); 
+
+                        document.fonts.load(`${tamanhoFonte}px 'Lugrasimo'`).then(function() {
+                            ctx.font = `${tamanhoFonte}px 'Lugrasimo', cursive`; 
+                            ctx.textAlign = "center";
+                            
+                            const posicaoX = (canvas.width / 2);
+                            const posicaoY = canvas.height * 0.83; 
+                            
+                            if (tipo === 'Padrinhos') {
+                                ctx.fillText(nome1, posicaoX, posicaoY);
+                                ctx.fillText("& " + nome2, posicaoX, posicaoY + (tamanhoFonte * 1.2)); 
+                            } else {
+                                ctx.fillText(nome1, posicaoX, posicaoY + (tamanhoFonte * 0.5));
+                            } 
+                            
+                            base64Moldura = canvas.toDataURL("image/jpeg", 0.9);
+                            resolve();
+                        });
+                    };
+                    imgUser.onerror = () => reject("Erro ao carregar a foto anexada.");
+                    imgUser.src = srcOriginal;
+                };
+                imgTemplate.onerror = () => reject("Erro ao carregar a moldura a partir do link.");
+                imgTemplate.src = linkDaMoldura;
+            });
+        }
+
+        async function enviarDados(e) {
+            e.preventDefault();
+            
+            if (!base64Original) {
+                alert("Por favor, anexe uma foto.");
+                return;
+            }
+
+            let nome1 = document.getElementById('nome1').value;
+            let nome2 = document.getElementById('nome2') ? document.getElementById('nome2').value : '';
+
+            document.getElementById('btnSalvar').style.display = 'none';
+            document.getElementById('loadingDiv').style.display = 'block';
+            document.getElementById('loadingDiv').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando imagem, aguarde... isso pode levar alguns segundos.';
+
+            try {
+                // 1. Gera a imagem
+                await gerarImagemComMoldura(base64Original, nome1, nome2, tipoAtual);
+                
+                // 2. Prepara os dados
+                let dados = {
+                    action: 'salvarDados', // Ação para o doPost do Google
+                    tipo: tipoAtual,
+                    nome1: nome1,
+                    nome2: nome2,
+                    base64Original: base64Original,
+                    mimeTypeOriginal: mimeTypeOriginal,
+                    base64Moldura: base64Moldura, 
+                    mimeTypeMoldura: 'image/jpeg'
+                };
+
+                // 3. Envia para o Google Apps Script via POST (text/plain evita bloqueio de CORS)
+                fetch(URL_DO_SEU_WEB_APP, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(dados)
+                })
+                .then(res => res.json())
+                .then(resposta => {
+                    document.getElementById('loadingDiv').style.display = 'none';
+                    if (resposta.sucesso) {
+                        document.getElementById('formulario').style.display = 'none';
+                        document.getElementById('menuSelecao').style.display = 'none';
+                        document.getElementById('telaSucesso').style.display = 'block';
+
+                        let segundosRestantes = 5;
+                        let intervalo = setInterval(function() {
+                            segundosRestantes--;
+                            document.getElementById('contador').innerText = segundosRestantes;
+                            if (segundosRestantes <= 0) {
+                                clearInterval(intervalo);
+                                voltarAoInicio();
+                            }
+                        }, 1000);
+                    } else {
+                        alert(resposta.mensagem);
+                        document.getElementById('btnSalvar').style.display = 'block';
+                    }
+                })
+                .catch(erro => {
+                    document.getElementById('loadingDiv').style.display = 'none';
+                    alert("Erro de conexão ao enviar: " + erro.message);
+                    document.getElementById('btnSalvar').style.display = 'block';
+                });
+
+            } catch (erro) {
+                alert(erro);
+                document.getElementById('btnSalvar').style.display = 'block';
+                document.getElementById('loadingDiv').style.display = 'none';
+            }
+        }
+
+        function voltarAoInicio() {
+            tipoAtual = '';
+            base64Original = '';
+            mimeTypeOriginal = '';
+            base64Moldura = '';
+            
+            document.getElementById('arquivoInput').value = '';
+            document.getElementById('preview-container').style.display = 'none';
+            document.getElementById('preview').src = '';
+            document.getElementById('uploadText').innerText = "Toque para anexar a foto";
+            
+            if(document.getElementById('nome1')) document.getElementById('nome1').value = '';
+            if(document.getElementById('nome2')) document.getElementById('nome2').value = '';
+            
+            document.getElementById('telaSucesso').style.display = 'none';
+            document.getElementById('formulario').style.display = 'none';
+            document.getElementById('menuSelecao').style.display = 'flex';
+            
+            document.getElementById('btnPadrinhos').classList.remove('active');
+            document.getElementById('btnMadrinhas').classList.remove('active');
+            
+            document.getElementById('btnSalvar').style.display = 'block';
+            document.getElementById('contador').innerText = "5";
+        }
+    </script>
+</body>
+</html>
