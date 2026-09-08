@@ -238,6 +238,7 @@
                 fetch(URL_DO_SEU_WEB_APP, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    redirect: 'follow', // <--- ADICIONE ESTA LINHA
                     body: JSON.stringify(dados)
                 })
                 .then(res => res.json())
