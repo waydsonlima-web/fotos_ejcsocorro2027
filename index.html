@@ -101,7 +101,8 @@
 
     <script>
         const URL_DO_SEU_WEB_APP = 'https://script.google.com/macros/s/AKfycbzGfttzwflqjB8BGT_pfez0plku-2ke8RM3isj9WmeyWH1Kvoi2j4hDlpJWsOIta4hbxQ/exec';
-        const linkDaMoldura = "hhttps://raw.githubusercontent.com/waydsonlima-web/fotos_ejcsocorro2027/main/Moldura%20EJC%20Socorro.png" + Date.now(); 
+        // URL da moldura corrigida com sintaxe de parâmetro ?v= para anti-cache
+        const linkDaMoldura = "https://raw.githubusercontent.com/waydsonlima-web/fotos_ejcsocorro2027/main/Moldura%20EJC%20Socorro.png?v=" + Date.now(); 
         
         let tipoAtual = '';
         let base64Original = '';
@@ -166,89 +167,98 @@
             }
         }
 
-        function gerarImagemComMoldura(srcOriginal, nome1, nome2, tipo) {
-            return new Promise((resolve, reject) => {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                
-                const imgTemplate = new Image();
-                imgTemplate.crossOrigin = "Anonymous"; 
-                
-                imgTemplate.onload = function() {
-                    canvas.width = imgTemplate.width;
-                    canvas.height = imgTemplate.height;
-                    
-                    const imgUser = new Image();
-                    imgUser.onload = function() {
-                        ctx.fillStyle = "#ffffff";
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        
-                        const margemLateral = canvas.width * 0.06; 
-                        const targetX = margemLateral; 
-                        const targetY = canvas.height * 0.05; 
-                        const targetWidth = canvas.width - (margemLateral * 2);
-                        const targetHeight = canvas.height * 0.73; 
-                        
-                        const imgRatio = imgUser.width / imgUser.height;
-                        const targetRatio = targetWidth / targetHeight;
-                        
-                        let sourceWidth, sourceHeight, sourceX, sourceY;
+        // Gera a imagem usando Fetch + Blob para evitar 100% dos erros de CORS do Canvas
+        async function gerarImagemComMoldura(srcOriginal, nome1, nome2, tipo) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
 
-                        if (imgRatio > targetRatio) {
-                            sourceHeight = imgUser.height;
-                            sourceWidth = imgUser.height * targetRatio;
-                            sourceX = (imgUser.width - sourceWidth) / 2;
-                            sourceY = 0;
-                        } else {
-                            sourceWidth = imgUser.width;
-                            sourceHeight = imgUser.width / targetRatio;
-                            sourceX = 0;
-                            sourceY = (imgUser.height - sourceHeight) * 0.20; 
-                        }
+            // 1. Carrega a moldura via fetch para criar um objeto local (evita CORS)
+            let imgTemplate = new Image();
+            try {
+                const response = await fetch(linkDaMoldura);
+                if (!response.ok) throw new Error("Status " + response.status);
+                const blob = await response.blob();
+                const objectURL = URL.createObjectURL(blob);
 
-                        ctx.drawImage(imgUser, sourceX, sourceY, sourceWidth, sourceHeight, targetX, targetY, targetWidth, targetHeight);
-                        ctx.drawImage(imgTemplate, 0, 0, canvas.width, canvas.height);
-                        
-                        ctx.fillStyle = "#333333"; 
-                        const tamanhoFonte = Math.floor(canvas.width * 0.08); 
+                await new Promise((resolve, reject) => {
+                    imgTemplate.onload = resolve;
+                    imgTemplate.onerror = () => reject("Erro ao ler o arquivo da moldura.");
+                    imgTemplate.src = objectURL;
+                });
+            } catch (err) {
+                throw new Error("Não foi possível carregar a moldura do GitHub. Verifique se o repositório é PÚBLICO. Detalhes: " + err.message);
+            }
 
-                        // Função para desenhar o texto na foto
-                        const desenharTexto = () => {
-                            ctx.textAlign = "center";
-                            const posicaoX = (canvas.width / 2);
-                            const posicaoY = canvas.height * 0.83; 
-                            
-                            if (tipo === 'Padrinhos') {
-                                ctx.fillText(nome1, posicaoX, posicaoY);
-                                ctx.fillText("& " + nome2, posicaoX, posicaoY + (tamanhoFonte * 1.2)); 
-                            } else {
-                                ctx.fillText(nome1, posicaoX, posicaoY + (tamanhoFonte * 0.5));
-                            } 
-                            
-                            base64Moldura = canvas.toDataURL("image/jpeg", 0.85);
-                            resolve();
-                        };
-
-                        // Garante o carregamento da fonte com fallback
-                        if (document.fonts && document.fonts.load) {
-                            document.fonts.load(`${tamanhoFonte}px 'Lugrasimo'`).then(() => {
-                                ctx.font = `${tamanhoFonte}px 'Lugrasimo', cursive`;
-                                desenharTexto();
-                            }).catch(() => {
-                                ctx.font = `${tamanhoFonte}px sans-serif`;
-                                desenharTexto();
-                            });
-                        } else {
-                            ctx.font = `${tamanhoFonte}px sans-serif`;
-                            desenharTexto();
-                        }
-                    };
-                    imgUser.onerror = () => reject("Erro ao carregar a foto do usuário.");
-                    imgUser.src = srcOriginal;
-                };
-                imgTemplate.onerror = () => reject("Erro de CORS ou ao carregar a moldura. Verifique o link da moldura.");
-                imgTemplate.src = linkDaMoldura;
+            // 2. Carrega a foto do usuário
+            const imgUser = new Image();
+            await new Promise((resolve, reject) => {
+                imgUser.onload = resolve;
+                imgUser.onerror = () => reject("Erro ao carregar a foto anexada.");
+                imgUser.src = srcOriginal;
             });
+
+            // 3. Renderização no Canvas
+            canvas.width = imgTemplate.width;
+            canvas.height = imgTemplate.height;
+
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const margemLateral = canvas.width * 0.06;
+            const targetX = margemLateral;
+            const targetY = canvas.height * 0.05;
+            const targetWidth = canvas.width - (margemLateral * 2);
+            const targetHeight = canvas.height * 0.73;
+
+            const imgRatio = imgUser.width / imgUser.height;
+            const targetRatio = targetWidth / targetHeight;
+
+            let sourceWidth, sourceHeight, sourceX, sourceY;
+
+            if (imgRatio > targetRatio) {
+                sourceHeight = imgUser.height;
+                sourceWidth = imgUser.height * targetRatio;
+                sourceX = (imgUser.width - sourceWidth) / 2;
+                sourceY = 0;
+            } else {
+                sourceWidth = imgUser.width;
+                sourceHeight = imgUser.width / targetRatio;
+                sourceX = 0;
+                sourceY = (imgUser.height - sourceHeight) * 0.20;
+            }
+
+            ctx.drawImage(imgUser, sourceX, sourceY, sourceWidth, sourceHeight, targetX, targetY, targetWidth, targetHeight);
+            ctx.drawImage(imgTemplate, 0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = "#333333";
+            const tamanhoFonte = Math.floor(canvas.width * 0.08);
+
+            const desenharTexto = () => {
+                ctx.textAlign = "center";
+                const posicaoX = (canvas.width / 2);
+                const posicaoY = canvas.height * 0.83;
+
+                if (tipo === 'Padrinhos') {
+                    ctx.fillText(nome1, posicaoX, posicaoY);
+                    ctx.fillText("& " + nome2, posicaoX, posicaoY + (tamanhoFonte * 1.2));
+                } else {
+                    ctx.fillText(nome1, posicaoX, posicaoY + (tamanhoFonte * 0.5));
+                }
+            };
+
+            if (document.fonts && document.fonts.load) {
+                try {
+                    await document.fonts.load(`${tamanhoFonte}px 'Lugrasimo'`);
+                    ctx.font = `${tamanhoFonte}px 'Lugrasimo', cursive`;
+                } catch (e) {
+                    ctx.font = `${tamanhoFonte}px sans-serif`;
+                }
+            } else {
+                ctx.font = `${tamanhoFonte}px sans-serif`;
+            }
+
+            desenharTexto();
+            base64Moldura = canvas.toDataURL("image/jpeg", 0.85);
         }
 
         async function enviarDados(e) {
